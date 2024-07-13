@@ -7,7 +7,10 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     config::{Config, OpenAIConfig},
-    error::{map_deserialization_error, OpenAIError, WrappedError},
+    error::{
+        map_json_deserialization_error, map_structured_deserialization_error, OpenAIError,
+        WrappedError,
+    },
     file::Files,
     image::Images,
     moderation::Moderations,
@@ -311,8 +314,12 @@ impl<C: Config> Client<C> {
 
             // Deserialize response body from either error object or actual response object
             if !status.is_success() {
-                let wrapped_error: WrappedError = serde_json::from_slice(bytes.as_ref())
-                    .map_err(|e| map_deserialization_error(e, bytes.as_ref()))
+                let raw_value: serde_json::Value = serde_json::from_slice(bytes.as_ref())
+                    .map_err(|e| map_json_deserialization_error(e, bytes.as_ref()))
+                    .map_err(backoff::Error::Permanent)?;
+
+                let wrapped_error: WrappedError = serde_path_to_error::deserialize(&raw_value)
+                    .map_err(|e| map_structured_deserialization_error(e, bytes.as_ref()))
                     .map_err(backoff::Error::Permanent)?;
 
                 if status.as_u16() == 429
@@ -351,8 +358,11 @@ impl<C: Config> Client<C> {
     {
         let bytes = self.execute_raw(request_maker).await?;
 
-        let response: O = serde_json::from_slice(bytes.as_ref())
-            .map_err(|e| map_deserialization_error(e, bytes.as_ref()))?;
+        let raw_value: serde_json::Value = serde_json::from_slice(bytes.as_ref())
+            .map_err(|e| map_json_deserialization_error(e, bytes.as_ref()))?;
+
+        let response: O = serde_path_to_error::deserialize(&raw_value)
+            .map_err(|e| map_structured_deserialization_error(e, bytes.as_ref()))?;
 
         Ok(response)
     }
@@ -449,10 +459,17 @@ where
                             break;
                         }
 
-                        let response = match serde_json::from_str::<O>(&message.data) {
-                            Err(e) => Err(map_deserialization_error(e, message.data.as_bytes())),
-                            Ok(output) => Ok(output),
-                        };
+                        let response = serde_json::from_str::<serde_json::Value>(&message.data)
+                            .map_err(|e| map_json_deserialization_error(e, message.data.as_bytes()))
+                            .and_then(|raw_value| {
+                                match serde_path_to_error::deserialize(&raw_value) {
+                                    Err(e) => Err(map_structured_deserialization_error(
+                                        e,
+                                        message.data.as_bytes(),
+                                    )),
+                                    Ok(output) => Ok(output),
+                                }
+                            });
 
                         if let Err(_e) = tx.send(response) {
                             // rx dropped

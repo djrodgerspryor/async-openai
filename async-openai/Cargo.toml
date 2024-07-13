@@ -46,6 +46,7 @@ async-convert = "1.0.0"
 secrecy = { version = "0.8.0", features = ["serde"] }
 bytes = "1.6.0"
 eventsource-stream = "0.2.3"
+serde_path_to_error = "0.1.16"
 
 [dev-dependencies]
 tokio-test = "0.4.4"

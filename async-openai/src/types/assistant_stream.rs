@@ -3,7 +3,9 @@ use std::pin::Pin;
 use futures::Stream;
 use serde::Deserialize;
 
-use crate::error::{map_deserialization_error, ApiError, OpenAIError};
+use crate::error::{
+    map_json_deserialization_error, map_structured_deserialization_error, ApiError, OpenAIError,
+};
 
 use super::{
     MessageDeltaObject, MessageObject, RunObject, RunStepDeltaObject, RunStepObject, ThreadObject,
@@ -117,93 +119,245 @@ impl TryFrom<eventsource_stream::Event> for AssistantStreamEvent {
     type Error = OpenAIError;
     fn try_from(value: eventsource_stream::Event) -> Result<Self, Self::Error> {
         match value.event.as_str() {
-            "thread.created" => serde_json::from_str::<ThreadObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+            "thread.created" => serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                .and_then(|raw_value| {
+                    serde_path_to_error::deserialize::<serde_json::Value, ThreadObject>(raw_value)
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                })
                 .map(AssistantStreamEvent::TreadCreated),
-            "thread.run.created" => serde_json::from_str::<RunObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+            "thread.run.created" => serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                .and_then(|raw_value| {
+                    serde_path_to_error::deserialize::<serde_json::Value, RunObject>(raw_value)
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                })
                 .map(AssistantStreamEvent::ThreadRunCreated),
-            "thread.run.queued" => serde_json::from_str::<RunObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+            "thread.run.queued" => serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                .and_then(|raw_value| {
+                    serde_path_to_error::deserialize::<serde_json::Value, RunObject>(raw_value)
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                })
                 .map(AssistantStreamEvent::ThreadRunQueued),
-            "thread.run.in_progress" => serde_json::from_str::<RunObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
-                .map(AssistantStreamEvent::ThreadRunInProgress),
-            "thread.run.requires_action" => serde_json::from_str::<RunObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
-                .map(AssistantStreamEvent::ThreadRunRequiresAction),
-            "thread.run.completed" => serde_json::from_str::<RunObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
-                .map(AssistantStreamEvent::ThreadRunCompleted),
-            "thread.run.incomplete" => serde_json::from_str::<RunObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
-                .map(AssistantStreamEvent::ThreadRunIncomplete),
-            "thread.run.failed" => serde_json::from_str::<RunObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+            "thread.run.in_progress" => {
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunObject>(raw_value)
+                            .map_err(|e| {
+                                map_structured_deserialization_error(e, value.data.as_bytes())
+                            })
+                    })
+                    .map(AssistantStreamEvent::ThreadRunInProgress)
+            }
+            "thread.run.requires_action" => {
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunObject>(raw_value)
+                            .map_err(|e| {
+                                map_structured_deserialization_error(e, value.data.as_bytes())
+                            })
+                    })
+                    .map(AssistantStreamEvent::ThreadRunRequiresAction)
+            }
+            "thread.run.completed" => {
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunObject>(raw_value)
+                            .map_err(|e| {
+                                map_structured_deserialization_error(e, value.data.as_bytes())
+                            })
+                    })
+                    .map(AssistantStreamEvent::ThreadRunCompleted)
+            }
+            "thread.run.incomplete" => {
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunObject>(raw_value)
+                            .map_err(|e| {
+                                map_structured_deserialization_error(e, value.data.as_bytes())
+                            })
+                    })
+                    .map(AssistantStreamEvent::ThreadRunIncomplete)
+            }
+            "thread.run.failed" => serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                .and_then(|raw_value| {
+                    serde_path_to_error::deserialize::<serde_json::Value, RunObject>(raw_value)
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                })
                 .map(AssistantStreamEvent::ThreadRunFailed),
-            "thread.run.cancelling" => serde_json::from_str::<RunObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
-                .map(AssistantStreamEvent::ThreadRunCancelling),
-            "thread.run.cancelled" => serde_json::from_str::<RunObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
-                .map(AssistantStreamEvent::ThreadRunCancelled),
-            "thread.run.expired" => serde_json::from_str::<RunObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+            "thread.run.cancelling" => {
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunObject>(raw_value)
+                            .map_err(|e| {
+                                map_structured_deserialization_error(e, value.data.as_bytes())
+                            })
+                    })
+                    .map(AssistantStreamEvent::ThreadRunCancelling)
+            }
+            "thread.run.cancelled" => {
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunObject>(raw_value)
+                            .map_err(|e| {
+                                map_structured_deserialization_error(e, value.data.as_bytes())
+                            })
+                    })
+                    .map(AssistantStreamEvent::ThreadRunCancelled)
+            }
+            "thread.run.expired" => serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                .and_then(|raw_value| {
+                    serde_path_to_error::deserialize::<serde_json::Value, RunObject>(raw_value)
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                })
                 .map(AssistantStreamEvent::ThreadRunExpired),
-            "thread.run.step.created" => serde_json::from_str::<RunStepObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
-                .map(AssistantStreamEvent::ThreadRunStepCreated),
+            "thread.run.step.created" => {
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunStepObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
+                    .map(AssistantStreamEvent::ThreadRunStepCreated)
+            }
             "thread.run.step.in_progress" => {
-                serde_json::from_str::<RunStepObject>(value.data.as_str())
-                    .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunStepObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
                     .map(AssistantStreamEvent::ThreadRunStepInProgress)
             }
             "thread.run.step.delta" => {
-                serde_json::from_str::<RunStepDeltaObject>(value.data.as_str())
-                    .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunStepDeltaObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
                     .map(AssistantStreamEvent::ThreadRunStepDelta)
             }
             "thread.run.step.completed" => {
-                serde_json::from_str::<RunStepObject>(value.data.as_str())
-                    .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunStepObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
                     .map(AssistantStreamEvent::ThreadRunStepCompleted)
             }
-            "thread.run.step.failed" => serde_json::from_str::<RunStepObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
-                .map(AssistantStreamEvent::ThreadRunStepFailed),
+            "thread.run.step.failed" => {
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunStepObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
+                    .map(AssistantStreamEvent::ThreadRunStepFailed)
+            }
             "thread.run.step.cancelled" => {
-                serde_json::from_str::<RunStepObject>(value.data.as_str())
-                    .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunStepObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
                     .map(AssistantStreamEvent::ThreadRunStepCancelled)
             }
-            "thread.run.step.expired" => serde_json::from_str::<RunStepObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
-                .map(AssistantStreamEvent::ThreadRunStepExpired),
-            "thread.message.created" => serde_json::from_str::<MessageObject>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
-                .map(AssistantStreamEvent::ThreadMessageCreated),
+            "thread.run.step.expired" => {
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, RunStepObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
+                    .map(AssistantStreamEvent::ThreadRunStepExpired)
+            }
+            "thread.message.created" => {
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, MessageObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
+                    .map(AssistantStreamEvent::ThreadMessageCreated)
+            }
             "thread.message.in_progress" => {
-                serde_json::from_str::<MessageObject>(value.data.as_str())
-                    .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, MessageObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
                     .map(AssistantStreamEvent::ThreadMessageInProgress)
             }
             "thread.message.delta" => {
-                serde_json::from_str::<MessageDeltaObject>(value.data.as_str())
-                    .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, MessageDeltaObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
                     .map(AssistantStreamEvent::ThreadMessageDelta)
             }
             "thread.message.completed" => {
-                serde_json::from_str::<MessageObject>(value.data.as_str())
-                    .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, MessageObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
                     .map(AssistantStreamEvent::ThreadMessageCompleted)
             }
             "thread.message.incomplete" => {
-                serde_json::from_str::<MessageObject>(value.data.as_str())
-                    .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+                serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                    .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                    .and_then(|raw_value| {
+                        serde_path_to_error::deserialize::<serde_json::Value, MessageObject>(
+                            raw_value,
+                        )
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                    })
                     .map(AssistantStreamEvent::ThreadMessageIncomplete)
             }
-            "error" => serde_json::from_str::<ApiError>(value.data.as_str())
-                .map_err(|e| map_deserialization_error(e, value.data.as_bytes()))
+            "error" => serde_json::from_str::<serde_json::Value>(value.data.as_str())
+                .map_err(|e| map_json_deserialization_error(e, value.data.as_bytes()))
+                .and_then(|raw_value| {
+                    serde_path_to_error::deserialize::<serde_json::Value, ApiError>(raw_value)
+                        .map_err(|e| map_structured_deserialization_error(e, value.data.as_bytes()))
+                })
                 .map(AssistantStreamEvent::ErrorEvent),
             "done" => Ok(AssistantStreamEvent::Done(value.data)),
 
@@ -213,3 +367,5 @@ impl TryFrom<eventsource_stream::Event> for AssistantStreamEvent {
         }
     }
 }
+
+// let response = ;

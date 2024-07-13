@@ -10,8 +10,10 @@ pub enum OpenAIError {
     #[error("{0}")]
     ApiError(ApiError),
     /// Error when a response cannot be deserialized into a Rust type
-    #[error("failed to deserialize api response: {0}")]
-    JSONDeserialize(serde_json::Error),
+    #[error("failed to parse api response as JSON: {0}")]
+    JSONParse(serde_json::Error),
+    #[error("failed to destructure api response into expected shape: {0:?}")]
+    JSONDestructure(serde_path_to_error::Error<serde_json::Error>),
     /// Error on the client side when saving file to file system
     #[error("failed to save file: {0}")]
     FileSaveError(String),
@@ -67,10 +69,21 @@ pub(crate) struct WrappedError {
     pub(crate) error: ApiError,
 }
 
-pub(crate) fn map_deserialization_error(e: serde_json::Error, bytes: &[u8]) -> OpenAIError {
+pub(crate) fn map_json_deserialization_error(e: serde_json::Error, bytes: &[u8]) -> OpenAIError {
     tracing::error!(
-        "failed deserialization of: {}",
+        "failed JSON deserialization of: {}",
         String::from_utf8_lossy(bytes)
     );
-    OpenAIError::JSONDeserialize(e)
+    OpenAIError::JSONParse(e)
+}
+
+pub(crate) fn map_structured_deserialization_error(
+    e: serde_path_to_error::Error<serde_json::Error>,
+    bytes: &[u8],
+) -> OpenAIError {
+    tracing::error!(
+        "failed structured deserialization of: {}",
+        String::from_utf8_lossy(bytes)
+    );
+    OpenAIError::JSONDestructure(e)
 }
